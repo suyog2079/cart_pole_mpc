@@ -19,6 +19,9 @@ m   = 0.1     # pole mass  (kg)
 l   = 0.5     # pole half-length (m)  — pivot to COM
 g   = 9.81    # gravity (m/s²)
 dt  = 0.005   # simulation time-step (s)  — 5 ms
+cx = 2.5      # cart damping (N/(m/s))
+ctheta = 0.4  # pole damping (N/(rad/s))
+Kv = 40.0     # velocity control gain: F = Kv * (v_cmd - x_dot)
 
 X_LIMIT = 2.5  # cart position hard limits ±X_LIMIT (m)
 
@@ -56,12 +59,6 @@ def step_physics(x, theta, x_dot, theta_dot, v_cmd):
     s = math.sin(theta)
     c = math.cos(theta)
 
-    # damping
-    cart_damping = 2.5
-    pole_damping = 0.4
-
-    # velocity servo -> force conversion
-    Kv = 40.0
     F = Kv * (v_cmd - x_dot)
     F = max(min(F, 30.0), -30.0)   # actuator saturation
 
@@ -89,14 +86,14 @@ def step_physics(x, theta, x_dot, theta_dot, v_cmd):
     x_ddot = (
         F
         + m * s * (l * theta_dot**2 + g * c)
-        - cart_damping * x_dot
+        - cx * x_dot
     ) / denom
 
     theta_ddot = (
         -F * c
         - m * l * theta_dot**2 * c * s
         - (M + m) * g * s
-        - pole_damping * theta_dot
+        - ctheta * theta_dot
     ) / (l * denom)
 
     # integrate
@@ -160,6 +157,7 @@ def handle_client(conn, addr):
     tcp_connected = True
     print(f"[TCP] Client connected: {addr}")
     buf = b""
+    a = 0;
     try:
         while True:
             chunk = conn.recv(256)
@@ -174,7 +172,8 @@ def handle_client(conn, addr):
                         v = float(text)
                         with cmd_lock:
                             cmd_vel = v
-                            print(f"[TCP] u: {v:.4f} m/s")
+                            print(f"[TCP] {a} u: {v:.4f} m/s")
+                            a = a + 1;
                     except ValueError:
                         pass
 
@@ -203,7 +202,7 @@ def handle_client(conn, addr):
 def tcp_server_loop():
     host, port = "0.0.0.0", 8080
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         srv.bind((host, port))
         srv.listen(5)
         print(f"[TCP] Listening on {host}:{port}")
