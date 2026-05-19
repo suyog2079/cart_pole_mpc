@@ -1,0 +1,3 @@
+./cartpole_nmpc.out
+./compile_commands.json
+./cartpole_nmpc.cpp

@@ -1,0 +1,17 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-std=c++17",
+      "-O3",
+      "-I/usr/local/include",
+      "-o",
+      "cartpole_nmpc.out",
+      "cartpole_nmpc.cpp"
+    ],
+    "directory": "/home/blank/stuff/cart_pole",
+    "file": "/home/blank/stuff/cart_pole/cartpole_nmpc.cpp",
+    "output": "/home/blank/stuff/cart_pole/cartpole_nmpc.out"
+  }
+]
