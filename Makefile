@@ -5,9 +5,8 @@ MAKEFLAGS += -j$(nproc)
 
 TARGET  = cartpole_nmpc.out
 SRCS    = src/main.cpp
-HEADERS = include/nmpc.hpp include/network.hpp
 
-$(TARGET): $(SRCS) $(HEADERS)
+$(TARGET): $(SRCS)
 	$(CXX) $(SRCS) $(CXXFLAGS) $(LDFLAGS) -o $(TARGET)
 
 clean:

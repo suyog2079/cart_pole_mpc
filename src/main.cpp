@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <netinet/in.h>
+#include <pid.hpp>
 #include <sstream>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -138,6 +139,8 @@ int main() {
   pthread_create(&tcp_thread, nullptr, tcp_client, nullptr);
   pthread_detach(tcp_thread);
 
+  PID pid(10.0, 1.0, 0.5, Ts, 10.0, Fmax);
+
   // Initialize command to zero
   shared_send.store({0.0});
 
@@ -147,6 +150,33 @@ int main() {
 
   std::thread input_thread(input_thread_func);
   input_thread.detach();
+
+  double local_target_x = target_x.load();
+  double local_target_theta = target_theta_rad.load();
+  std::vector<double> ref(nx, 0.0); // [x_des, 0, theta_des, 0]
+  ref[0] = local_target_x;
+  ref[2] = local_target_theta;
+  while (true) {
+    if (shared_updated.load() != 1)
+      continue;
+    shared_updated.store(0);
+
+    if (new_target.load()) {
+      local_target_x = target_x.load();
+      local_target_theta = target_theta_rad.load();
+      new_target.store(false);
+      std::cout << "MPC target updated: x = " << local_target_x
+                << " m, theta = " << local_target_theta << " rad\n";
+      ref[0] = local_target_x;
+      ref[2] = local_target_theta;
+    }
+
+    recv_data state = shared_recv.load();
+printf("target: %f, state: %f\n", local_target_theta, state.theta);
+    send_data control = {pid.calculate(local_target_theta, state.theta)};
+
+    shared_send.store(control);
+  }
 
   MX x_sym = MX::sym("x", nx);
   MX u_sym = MX::sym("u", nu);
@@ -169,12 +199,6 @@ int main() {
 
   int total_vars = nx * (N + 1) + nu * N;
   std::vector<double> x_init(total_vars, 0.0);
-
-  double local_target_x = target_x.load();
-  double local_target_theta = target_theta_rad.load();
-  std::vector<double> ref(nx, 0.0); // [x_des, 0, theta_des, 0]
-  ref[0] = local_target_x;
-  ref[2] = local_target_theta;
 
   auto last_time = std::chrono::steady_clock::now();
 
@@ -205,18 +229,18 @@ int main() {
     double u0 = sol(u_start).scalar();
 
     printf("control input: %f\n", u0);
-		printf("==================================================\n");
-		printf("==================================================\n");
-		printf("==================================================\n");
-		printf("==================================================\n");
-		printf("==================================================\n");
-		printf("==================================================\n");
-		printf("==================================================\n");
+    printf("==================================================\n");
+    printf("==================================================\n");
+    printf("==================================================\n");
+    printf("==================================================\n");
+    printf("==================================================\n");
+    printf("==================================================\n");
+    printf("==================================================\n");
 
     shared_send.store({u0});
   }
 
-	printf("Exiting main loop\n");
+  printf("Exiting main loop\n");
 
   return 0;
 }
